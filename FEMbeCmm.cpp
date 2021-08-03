@@ -119,7 +119,7 @@ mat3ds FEMbeCmm::Stress(FEMaterialPoint& mp)
 	mat3ds Ge = 1.0/Get/Gez*dyad(N[0]) + Get*dyad(N[1]) + Gez*dyad(N[2]);
 	
 	// stress for elastin
-	mat3ds Se = phieo*mu*Ge*Ge;						// phieo*Ge*Sehat*Ge = phieo*Ge*(mu*I)*Ge
+	mat3ds Se = (phieo*mu*Ge*Ge).sym();						// phieo*Ge*Sehat*Ge = phieo*Ge*(mu*I)*Ge
 
 	// computation of the second Piola-Kirchhoff stress
 	mat3ds S;
@@ -465,7 +465,7 @@ tens4dmm FEMbeCmm::SecantTangent(FEMaterialPoint& mp)
 		if (Cratio>0) sNa = (1.0-exp(-Cratio*Cratio))/(1.0-exp(-CB*CB))*sao;
 
 		// 2nd P-K stresses
-		mat3ds Se = phieo*mu*Ge*Ge;								// phieo*Ge*Sehat*Ge = phieo*Ge*(mu*I)*Ge
+		mat3ds Se = (phieo*mu*Ge*Ge).sym();								// phieo*Ge*Sehat*Ge = phieo*Ge*(mu*I)*Ge
 		mat3ds Sm = J*(ui*sNm*ui).sym();						// J*Ui*sNm*Ui
 		mat3ds Sc = J*(ui*sNc*ui).sym();						// J*Ui*sNc*Ui
 		mat3ds Sa = J*(ui*sNa*ui).sym();						// J*Ui*sNa*Ui
