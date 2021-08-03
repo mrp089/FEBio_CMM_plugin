@@ -7,9 +7,41 @@
 #include <math.h>								// to introduce pi constant (2/2)
 #include "FECore/log.h"							// to print to log file and/or screen
 
+GRMaterialPoint::GRMaterialPoint(FEMaterialPoint *pt) : FEMaterialPoint(pt) {}
+
+FEMaterialPoint* GRMaterialPoint::Copy()
+{
+	GRMaterialPoint* pt = new GRMaterialPoint(*this);
+    if (m_pNext) pt->m_pNext = m_pNext->Copy();
+    return pt;
+}
+
+void GRMaterialPoint::Init()
+{
+	FEMaterialPoint::Init();
+
+	m_Jo = 1;
+	m_svo = 0;
+	m_smo.zero();
+	m_sco.zero();
+	m_Fio.unit();
+	m_Jh = 1;
+	m_Fih.unit();
+
+	m_phic = 0;
+	m_Iemax = 0;
+}
+
+void GRMaterialPoint::Serialize(DumpStream& ar)
+{
+	FEMaterialPoint::Serialize(ar);
+	ar & m_Jo & m_svo & m_smo & m_sco & m_Fio & m_Jh & m_Fih & m_phic & m_Iemax;
+}
+
+
 //-----------------------------------------------------------------------------
 // This function needs to return the spatial (i.e. Cauchy stress) at the material point
-// which is passed as a parameter. The FEMaterialPoint class contains all the state 
+// which is passed as a parameter. The FEMaterialPoint class contains all the state
 // variables of the material (and its base classes).
 mat3ds FEMbeCmm::Stress(FEMaterialPoint& mp)
 {
@@ -17,13 +49,14 @@ mat3ds FEMbeCmm::Stress(FEMaterialPoint& mp)
 	// point data needed by this function can be accessed using the ExtractData member.
 	// In this case, we want to FEElasticMaterialPoint data since it stores the deformation
 	// information that is needed to evaluate the stress.
-	FEElasticMaterialPoint& pt = *mp.ExtractData<FEElasticMaterialPoint>();
+	FEElasticMaterialPoint& et = *mp.ExtractData<FEElasticMaterialPoint>();
+	GRMaterialPoint& pt = *mp.ExtractData<GRMaterialPoint>();
 
 	// We'll need the deformation gradient and its determinant in this function.
 	// Note that we don't take the determinant of F directly (using mat3d::det)
-	// but instead use the m_J member variable of FEElasticMaterialPoint.
-	mat3d &F = pt.m_F;
-	double J = pt.m_J;
+	// but instead use the m_J member variable of FEMaterialPoint.
+	mat3d &F = et.m_F;
+	double J = et.m_J;
 
 	double eps = std::numeric_limits<double>::epsilon();
 
@@ -112,7 +145,7 @@ mat3ds FEMbeCmm::Stress(FEMaterialPoint& mp)
 	mat3ds U; mat3d R; F.right_polar(R,U);
 
 	// right Cauchy-Green tensor and its inverse
-	mat3ds C = pt.RightCauchyGreen();
+	mat3ds C = et.RightCauchyGreen();
 	mat3ds Ci = C.inverse();
 
 	// Ge from spectral decomposition
@@ -267,13 +300,14 @@ mat3ds FEMbeCmm::Stress(FEMaterialPoint& mp)
 // which is a fourth-order tensor with major and minor symmetries.
 tens4dmm FEMbeCmm::SecantTangent(FEMaterialPoint& mp)
 {
-	// As in the Stress function, we need the data from the FEElasticMaterialPoint
+	// As in the Stress function, we need the data from the FEMaterialPoint
 	// class to calculate the tangent.
-	FEElasticMaterialPoint& pt = *mp.ExtractData<FEElasticMaterialPoint>();
+	FEElasticMaterialPoint& et = *mp.ExtractData<FEElasticMaterialPoint>();
+	GRMaterialPoint& pt = *mp.ExtractData<GRMaterialPoint>();
 
 	// Get the deformation gradient and its determinant
-	mat3d &F = pt.m_F;
-	double J = pt.m_J;
+	mat3d &F = et.m_F;
+	double J = et.m_J;
 
 	double eps = std::numeric_limits<double>::epsilon();
 
@@ -376,7 +410,7 @@ tens4dmm FEMbeCmm::SecantTangent(FEMaterialPoint& mp)
 	tens4ds IoI = dyad4s(I);
 
 	// define right Cauchy-Green tensor
-	mat3ds  C = pt.RightCauchyGreen();
+	mat3ds  C = et.RightCauchyGreen();
 
 	// spatial moduli for elastin
 	tens4ds ce(0.0);								// phieo/J*(FcF:GecGe:Cehat:GecGe:FTcFT) = phieo/J*(FcF:GecGe:0:GecGe:FTcFT)

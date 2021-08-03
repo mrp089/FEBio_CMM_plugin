@@ -14,12 +14,42 @@
 // FEElasticMaterial which is defined in this include files.
 #include "FEBioMech/FEElasticMaterial.h"
 
+class GRMaterialPoint : public FEMaterialPoint
+{
+public:
+	GRMaterialPoint(FEMaterialPoint *pt);
+
+	FEMaterialPoint* Copy() override;
+
+	void Init() override;
+
+	void Serialize(DumpStream& ar) override;
+
+public:
+	// original (o) homeostatic data
+	double		m_Jo;		//!< Jacobian at o
+	double		m_svo;		//!< volumetric stress at o
+	mat3ds		m_smo;		//!< Cauchy stress tensor for smooth muscle cells at o
+	mat3ds		m_sco;		//!< Cauchy stress tensor for all collagen fiber families at o
+	mat3d		m_Fio;		//!< inverse of deformation gradient tensor at o
+	double		m_Jh;		//!< Jacobian at h
+	mat3d		m_Fih;		//!< inverse of deformation gradient tensor at h
+
+	// evolved homeostatic (h) data
+	double		m_phic;		//!< total mass fraction of all collagen fiber families at h
+	double		m_Iemax;	//!< maximum value of Ie achieved over the loading history up until the current G&R time
+};
+
 //-----------------------------------------------------------------------------
 // This material class implements a neo-Hookean constitutive model. 
 // Since it is a (compressible, coupled) hyper-elatic material, it needs to inherit
 // from FEElasticMaterial. 
 class FEMbeCmm : public FEElasticMaterial
 {
+public:
+	// returns a pointer to a new material point object
+	virtual FEMaterialPoint* CreateMaterialPointData() override { return new GRMaterialPoint(new FEMaterialPoint); }
+
 public:
 	// The constructor is called when an instance of this class is created.
 	// All classes registered by the framework must take the FEModel* as the only
