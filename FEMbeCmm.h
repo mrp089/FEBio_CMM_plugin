@@ -56,7 +56,9 @@ public:
 	// parameter in the constructor, even if the class does not need it (which most often
 	// will be the case). For material classes, the FEModel parameter is passed to the 
 	// base class in the initialization list.
-	FEMbeCmm(FEModel* pfem) : FEElasticMaterial(pfem) {}
+	FEMbeCmm(FEModel* pfem) : FEElasticMaterial(pfem) {
+		m_secant_tangent = true;
+	}
 
 public:
 	// The following three functions are the only functions that have to be defined.
