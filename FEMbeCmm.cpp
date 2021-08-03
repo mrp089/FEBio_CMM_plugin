@@ -38,12 +38,19 @@ void GRMaterialPoint::Serialize(DumpStream& ar)
 	ar & m_Jo & m_svo & m_smo & m_sco & m_Fio & m_Jh & m_Fih & m_phic & m_Iemax;
 }
 
+void FEMbeCmm::StressTangent(FEMaterialPoint& mp, mat3ds& stress, tens4dmm& tangent, const bool get_stress, const bool get_tangent)
+{
+	if(get_stress)
+		stress = StressOld(mp);
+	if(get_tangent)
+		tangent = SecantTangentOld(mp);
+}
 
 //-----------------------------------------------------------------------------
 // This function needs to return the spatial (i.e. Cauchy stress) at the material point
 // which is passed as a parameter. The FEMaterialPoint class contains all the state
 // variables of the material (and its base classes).
-mat3ds FEMbeCmm::Stress(FEMaterialPoint& mp)
+mat3ds FEMbeCmm::StressOld(FEMaterialPoint& mp)
 {
 	// The FEMaterialPoint classes are stored in a linked list. The specific material
 	// point data needed by this function can be accessed using the ExtractData member.
@@ -298,7 +305,7 @@ mat3ds FEMbeCmm::Stress(FEMaterialPoint& mp)
 // This function calculates the spatial elasticity tangent tensor. 
 // It takes one parameter, the FEMaterialPoint and retursn a tens4ds object
 // which is a fourth-order tensor with major and minor symmetries.
-tens4dmm FEMbeCmm::SecantTangent(FEMaterialPoint& mp)
+tens4dmm FEMbeCmm::SecantTangentOld(FEMaterialPoint& mp)
 {
 	// As in the Stress function, we need the data from the FEMaterialPoint
 	// class to calculate the tangent.
@@ -383,14 +390,14 @@ tens4dmm FEMbeCmm::SecantTangent(FEMaterialPoint& mp)
 	double CS = 0.5*CB * 1.0;							// such that (1-exp(- C^2)) = 0.0 for lt = 1/(1+CB/CS)^(1/3) = 0.7 and (1-exp(-C^2)) = 0.75 for lt = 2.0
 
 	// parameters at 4 weeks (maladaptive)
-	
+
 	double cm4 = 155.7;									// c1t muscle at day 28
 	double dm4 = 1.20;									// c2t muscle
 	double Gm4 = 1.23;									// circumferential deposition stretch (smc)
 	double cc4 = 27.68;									// c1t collagen
 	double dc4 = 9.98;									// c2t collagen
 	double Gc4 = 1.21;									// deposition stretch (collagen)
-	
+
 	double KsKi = 0.35;
 	double EPS  = 1.0+(1.0-1.0)*(sgr-1.0)/(endtime-1.0);
 
@@ -454,7 +461,7 @@ tens4dmm FEMbeCmm::SecantTangent(FEMaterialPoint& mp)
 		cf /= J; ca /= J;
 
 		tens4ds c = ce + cf + ca;
-		
+
 		c += lm/J*(IxI-2.0*log(Jdep*J)*IoI);
 
 		css = tens4dmm(c);		// c in tens4dmm form
@@ -503,7 +510,7 @@ tens4dmm FEMbeCmm::SecantTangent(FEMaterialPoint& mp)
 		mat3ds Sm = J*(ui*sNm*ui).sym();						// J*Ui*sNm*Ui
 		mat3ds Sc = J*(ui*sNc*ui).sym();						// J*Ui*sNc*Ui
 		mat3ds Sa = J*(ui*sNa*ui).sym();						// J*Ui*sNa*Ui
-		
+
 		mat3ds Sf = phim*Sm+phic*Sc;							// J*Ui*sNf*Ui
 		mat3ds Sx = Se+Sf+phim*Sa;
 
@@ -524,11 +531,11 @@ tens4dmm FEMbeCmm::SecantTangent(FEMaterialPoint& mp)
 		tens4dmm smxI = dyad1mm(sm,I);
 		tens4dmm scxI = dyad1mm(sc,I);
 		tens4dmm saxI = dyad1mm(sa,I);
-		
-		mat3ds tenr = dyad(F*(Fio*N[0]));						// Fio needed for consistency (from computation of lr) 
+
+		mat3ds tenr = dyad(F*(Fio*N[0]));						// Fio needed for consistency (from computation of lr)
 		mat3ds tent = dyad(F*(Fio*N[1]));
 		mat3ds tenz = dyad(F*(Fio*N[2]));
-		
+
 		tens4dmm Ixnrr = dyad1mm(I,tenr);
 		tens4dmm Ixntt = dyad1mm(I,tent);
 
@@ -548,7 +555,7 @@ tens4dmm FEMbeCmm::SecantTangent(FEMaterialPoint& mp)
 		Fxeigenvec[0] = F*eigenvec[0];
 		Fxeigenvec[1] = F*eigenvec[1];
 		Fxeigenvec[2] = F*eigenvec[2];
-		
+
 		for (int i=0; i<3; i++) {
 
 			mat3ds ten1 = dyad(Fxeigenvec[i]);
@@ -592,7 +599,7 @@ tens4dmm FEMbeCmm::SecantTangent(FEMaterialPoint& mp)
 
 		double lpo = (Fio.inverse()*Np).norm();					// original referential stretch for deposition stretch calculation
 		double lno = (Fio.inverse()*Nn).norm();					// idem for symmetric
-		
+
 		double lcp2 = (Gc*lpo)*(Gc*lpo);						// deposition stretch calculation (computational purposes)
 		double lcn2 = (Gc*lno)*(Gc*lno);						// idem for symmetric
 
@@ -615,11 +622,11 @@ tens4dmm FEMbeCmm::SecantTangent(FEMaterialPoint& mp)
 
 		cpnss += (phic*betad) * scphato * dyad1mm(ten1,ten3);					// 1/J * FoF : [ J * phicp * scphato * (Ui)o(Ui) : 2*d(NpxNp)/d(C) ] : (Ft)o(Ft)
 		cpnss += (phic*betad) * scnhato * dyad1mm(ten2,ten3);
-		
+
 		tens4dmm cess = tens4dmm(ce);							// ce in tens4dmm form
 
 		css = cess + cfss + cass + cpnss;
-		
+
 		css += 1.0/3.0*(2.0*sx.tr()*IoIss-2.0*Ixsx-ddot(IxIss,css))
 			 + svo/(1.0-delta)*(1.0+KsKi*(EPS*pow(rIrIo,-3)-1.0)-KfKi*inflam)*(IxIss-2.0*IoIss)
 			 - 3.0*svo/(1.0-delta)*KsKi*EPS*pow(rIrIo,-4)*(ro/rIo/lt*Ixntt-(ro-rIo)/rIo/lr*Ixnrr);

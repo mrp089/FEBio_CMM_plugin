@@ -61,20 +61,31 @@ public:
 	}
 
 public:
-	// The following three functions are the only functions that have to be defined.
-	// (Actually, the Init function is optional). They are defined as virtual member 
-	// functions in the base classes and will be called by FEBio to invoke the specific
-	// class implementations.
+	void StressTangent(FEMaterialPoint& mp, mat3ds& stress, tens4dmm& tangent, const bool get_stress, const bool get_tangent);
+	mat3ds StressOld(FEMaterialPoint& pt);
+	tens4dmm SecantTangentOld(FEMaterialPoint& pt);
 
 	// This function calculates the spatial (i.e. Cauchy or true) stress.
 	// It takes one parameter, the FEMaterialPoint and returns a mat3ds object
 	// which is a symmetric second-order tensor.
-	virtual mat3ds Stress(FEMaterialPoint& pt);
+	virtual mat3ds Stress(FEMaterialPoint& pt){
+		mat3ds stress;
+		tens4dmm tangent;
+		StressTangent(pt, stress, tangent, true, false);
+		return stress;
+	}
 
 	// This function calculates the spatial elasticity tangent tensor. 
 	// It takes one parameter, the FEMaterialPoint and retursn a tens4ds object
 	// which is a fourth-order tensor with major and minor symmetries.
 	virtual tens4ds Tangent(FEMaterialPoint& pt) {};
-	virtual tens4dmm SecantTangent(FEMaterialPoint& pt);
+
+	// minor symmetries only
+	virtual tens4dmm SecantTangent(FEMaterialPoint& pt) {
+		mat3ds stress;
+		tens4dmm tangent;
+		StressTangent(pt, stress, tangent, false, true);
+		return tangent;
+	}
 
 };
