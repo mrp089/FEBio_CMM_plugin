@@ -48,7 +48,7 @@ class FEMbeCmm : public FEElasticMaterial
 {
 public:
 	// returns a pointer to a new material point object
-	virtual FEMaterialPoint* CreateMaterialPointData() override { return new GRMaterialPoint(new FEMaterialPoint); }
+	virtual FEMaterialPoint* CreateMaterialPointData() override { return new GRMaterialPoint(new FEElasticMaterialPoint); }
 
 public:
 	// The constructor is called when an instance of this class is created.
