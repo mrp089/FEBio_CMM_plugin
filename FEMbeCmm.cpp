@@ -40,18 +40,6 @@ void GRMaterialPoint::Serialize(DumpStream& ar)
 
 void FEMbeCmm::StressTangent(FEMaterialPoint& mp, mat3ds& stress, tens4dmm& tangent, const bool get_stress, const bool get_tangent)
 {
-	if(get_stress)
-		stress = StressOld(mp);
-	if(get_tangent)
-		tangent = SecantTangentOld(mp);
-}
-
-//-----------------------------------------------------------------------------
-// This function needs to return the spatial (i.e. Cauchy stress) at the material point
-// which is passed as a parameter. The FEMaterialPoint class contains all the state
-// variables of the material (and its base classes).
-mat3ds FEMbeCmm::StressOld(FEMaterialPoint& mp)
-{
 	// The FEMaterialPoint classes are stored in a linked list. The specific material
 	// point data needed by this function can be accessed using the ExtractData member.
 	// In this case, we want to FEElasticMaterialPoint data since it stores the deformation
@@ -62,31 +50,31 @@ mat3ds FEMbeCmm::StressOld(FEMaterialPoint& mp)
 	// We'll need the deformation gradient and its determinant in this function.
 	// Note that we don't take the determinant of F directly (using mat3d::det)
 	// but instead use the m_J member variable of FEMaterialPoint.
-	mat3d &F = et.m_F;
-	double J = et.m_J;
+	const mat3d &F = et.m_F;
+	const double J = et.m_J;
 
-	double eps = std::numeric_limits<double>::epsilon();
+	const double eps = std::numeric_limits<double>::epsilon();
 
 	// get current and end times
-	double t = GetFEModel()->GetTime().currentTime;
-	double endtime = GetFEModel()->GetCurrentStep()->m_tend;
+	const double t = GetFEModel()->GetTime().currentTime;
+//	const double endtime = GetFEModel()->GetCurrentStep()->m_tend;
 
-	endtime = 11.0;							// 11.0 | 31.0-32.0 (TEVG)
-	double partialtime = endtime;			// partialtime <= endtime | 10.0 | 10.4 (for TI calculation)
-	double sgr = min(t,partialtime);		// min(t,partialtime) | min(t,9.0)
+	const double endtime = 11.0;							// 11.0 | 31.0-32.0 (TEVG)
+	const double partialtime = endtime;			// partialtime <= endtime | 10.0 | 10.4 (for TI calculation)
+	const double sgr = min(t,partialtime);		// min(t,partialtime) | min(t,9.0)
 
 	// retrieve material position
-	vec3d  X = pt.m_r0;
+	const vec3d  X = pt.m_r0;
 
-	double imper = 0.00;					// imper > 0 for TORTUOSITY (see Matlab script <NodesElementsAsy.m>) | 0.00 | 20.0
-	double rIo = 0.6468;					// 0.6468 | 0.5678
-	double hwaves = 2.0;
-	double lo = 30.0;
-	vec3d  Xcl = {0.0, imper/100.0*rIo*sin(hwaves*M_PI*X.z/lo), X.z};		// center line
+	const double imper = 0.00;					// imper > 0 for TORTUOSITY (see Matlab script <NodesElementsAsy.m>) | 0.00 | 20.0
+	const double rIo = 0.6468;					// 0.6468 | 0.5678
+	const double hwaves = 2.0;
+	const double lo = 30.0;
+	const vec3d  Xcl = {0.0, imper/100.0*rIo*sin(hwaves*M_PI*X.z/lo), X.z};		// center line
 
 	vec3d NX = {X.x-Xcl.x,X.y-Xcl.y,X.z-Xcl.z};								// radial vector
 
-	double ro = sqrt(NX*NX);
+	const double ro = sqrt(NX*NX);
 
 	NX /= ro;
 
@@ -101,70 +89,83 @@ mat3ds FEMbeCmm::StressOld(FEMaterialPoint& mp)
 	// elementwise, from input file
 	// N[2] = pt.m_Q.col(0); N[1] = pt.m_Q.col(1); N[0] = pt.m_Q.col(2);							// axial, circumferential, radial
 
-	double phieo = 0.34;								// 0.34 (CMAME | KNOCKOUTS) | 1.00 (TEVG) | 1.0/3.0 (TEVG)
-	double phimo = 0.5*(1.0-phieo);
-	double phico = 0.5*(1.0-phieo);
+	const double phieo = 0.34;								// 0.34 (CMAME | KNOCKOUTS) | 1.00 (TEVG) | 1.0/3.0 (TEVG)
+	const double phimo = 0.5*(1.0-phieo);
+	const double phico = 0.5*(1.0-phieo);
 
-	double eta = 1.0;									// 1.0 | 1.0/3.0 (for uniform cases) | 0.714
+	const double eta = 1.0;									// 1.0 | 1.0/3.0 (for uniform cases) | 0.714
 
-	double mu = 89.71;
-	double Get = 1.90;
-	double Gez = 1.62;
+	const double mu = 89.71;
+	const double Get = 1.90;
+	const double Gez = 1.62;
 
 	double alpha = 0.522;								// original orientation of diagonal collagen | 0.522 (CMAME | KNOCKOUTS) | 0.8713 (TEVG)
 
 	// original homeostatic parameters (adaptive)
 
 	// passive
-	double cm = 261.4;									// 261.4 (CMAME | KNOCKOUTS) | 46.61 (TEVG)
-	double dm = 0.24;
-	double Gm = 1.20;
-	double cc = 234.9;									// 234.9 (CMAME | KNOCKOUTS) | 328.475 (TEVG)
-	double dc = 4.08;
-	double Gc = 1.25;
+	const double cm = 261.4;									// 261.4 (CMAME | KNOCKOUTS) | 46.61 (TEVG)
+	const double dm = 0.24;
+	const double Gm = 1.20;
+	const double cc = 234.9;									// 234.9 (CMAME | KNOCKOUTS) | 328.475 (TEVG)
+	const double dc = 4.08;
+	const double Gc = 1.25;
 
 	// orientation fractions for collagen
-	double betat = 0.056;
-	double betaz = 0.067;
-	double betad = 0.5*(1.0 - betat - betaz);
+	const double betat = 0.056;
+	const double betaz = 0.067;
+	const double betad = 0.5*(1.0 - betat - betaz);
 
 	vec3d  Np = N[1]*sin(alpha)+N[2]*cos(alpha);		// original diagonal fiber direction
 	vec3d  Nn = N[1]*sin(alpha)-N[2]*cos(alpha);		// idem for symmetric
 
 	// active
-	double Tmax = 250.0 * 0.0;							// 250.0 | 50.0 | 150.0 (for uniform cases, except for contractility -> 250)
-	double lamM = 1.1;
-	double lam0 = 0.4;
-	double CB = sqrt(log(2.0));							// such that (1-exp(-CB^2)) = 0.5
-	double CS = 0.5*CB * 1.0;							// such that (1-exp( -C^2)) = 0.0 for lt = 1/(1+CB/CS)^(1/3) = 0.7 and (1-exp(-C^2)) = 0.75 for lt = 2.0
+	const double Tmax = 250.0 * 0.0;							// 250.0 | 50.0 | 150.0 (for uniform cases, except for contractility -> 250)
+	const double lamM = 1.1;
+	const double lam0 = 0.4;
+	const double CB = sqrt(log(2.0));							// such that (1-exp(-CB^2)) = 0.5
+	const double CS = 0.5*CB * 1.0;							// such that (1-exp( -C^2)) = 0.0 for lt = 1/(1+CB/CS)^(1/3) = 0.7 and (1-exp(-C^2)) = 0.75 for lt = 2.0
 
 	double KsKi = 0.35;
 	double EPS  = 1.0+(1.0-1.0)*(sgr-1.0)/(endtime-1.0);
 
-	double KfKi   = 1.0;
-	double inflam = 0.0*(sgr-1.0)/(endtime-1.0);
+	const double KfKi   = 1.0;
+	const double inflam = 0.0*(sgr-1.0)/(endtime-1.0);
 
-	double aexp = 1.0;									// 1.0 (KNOCKOUTS | TEVG) | 0.0 (CMAME | TORTUOSITY)
+	const double aexp = 1.0;									// 1.0 (KNOCKOUTS | TEVG) | 0.0 (CMAME | TORTUOSITY)
 
-	double delta = 0.0;
+	const double delta = 0.0;
 
 	// compute U from polar decomposition of deformation gradient tensor
 	mat3ds U; mat3d R; F.right_polar(R,U);
 
 	// right Cauchy-Green tensor and its inverse
-	mat3ds C = et.RightCauchyGreen();
-	mat3ds Ci = C.inverse();
+	const mat3ds C = et.RightCauchyGreen();
+	const mat3ds Ci = C.inverse();
 
 	// Ge from spectral decomposition
 	mat3ds Ge = 1.0/Get/Gez*dyad(N[0]) + Get*dyad(N[1]) + Gez*dyad(N[2]);
 	
 	// stress for elastin
-	mat3ds Se = (phieo*mu*Ge*Ge).sym();						// phieo*Ge*Sehat*Ge = phieo*Ge*(mu*I)*Ge
+	const mat3ds Se = (phieo*mu*Ge*Ge).sym();						// phieo*Ge*Sehat*Ge = phieo*Ge*(mu*I)*Ge
 
 	// computation of the second Piola-Kirchhoff stress
 	mat3ds S;
-	if (t <= 1.0 + eps) {
 
+	// define identity tensor and some useful dyadic products of the identity tensor
+	const mat3dd  I(1.0);
+	const tens4ds IxI = dyad1s(I);
+	const tens4ds IoI = dyad4s(I);
+
+	// spatial moduli for elastin
+	tens4ds ce(0.0);								// phieo/J*(FcF:GecGe:Cehat:GecGe:FTcFT) = phieo/J*(FcF:GecGe:0:GecGe:FTcFT)
+
+	// computation of spatial moduli
+	tens4dmm css;
+	mat3ds sfpro;
+	double eigenval[3]; vec3d eigenvec[3];
+	if (t <= 1.0 + eps) {
+		// compute stress
 		double Jdep = 0.9999;
 		double lm = 1.0e3*mu;
 		
@@ -203,6 +204,30 @@ mat3ds FEMbeCmm::StressOld(FEMaterialPoint& mp)
 		pt.m_Jh    = pt.m_Jo;
 		pt.m_Fih   = pt.m_Fio;
 		pt.m_phic  = phico;
+
+		// compute tangent
+		mat3ds tent = dyad(F*N[1]);
+		mat3ds tenz = dyad(F*N[2]);
+		mat3ds tenp = dyad(F*Np);
+		mat3ds tenn = dyad(F*Nn);
+
+		// passive
+		tens4ds cf = phimo*(2.0*cm*(1.0+2.0*dm*(lmt2-1.0)*(lmt2-1.0))*exp(dm*(lmt2-1.0)*(lmt2-1.0))*pow(Gm,4)*dyad1s(tent))      +
+					 phico*(2.0*cc*(1.0+2.0*dc*(lct2-1.0)*(lct2-1.0))*exp(dc*(lct2-1.0)*(lct2-1.0))*pow(Gc,4)*dyad1s(tent)*betat +
+							2.0*cc*(1.0+2.0*dc*(lcz2-1.0)*(lcz2-1.0))*exp(dc*(lcz2-1.0)*(lcz2-1.0))*pow(Gc,4)*dyad1s(tenz)*betaz +
+							2.0*cc*(1.0+2.0*dc*(lcp2-1.0)*(lcp2-1.0))*exp(dc*(lcp2-1.0)*(lcp2-1.0))*pow(Gc,4)*dyad1s(tenp)*betad +
+							2.0*cc*(1.0+2.0*dc*(lcn2-1.0)*(lcn2-1.0))*exp(dc*(lcn2-1.0)*(lcn2-1.0))*pow(Gc,4)*dyad1s(tenn)*betad);
+
+		// active
+		tens4ds ca = phimo*2.0*Tmax*(1.0-exp(-CB*CB))*(1.0-pow((lamM-1.0)/(lamM-lam0),2))*dyad1s(tent);
+
+		cf /= J; ca /= J;
+
+		tens4ds c = ce + cf + ca;
+
+		c += lm/J*(IxI-2.0*log(Jdep*J)*IoI);
+
+		css = tens4dmm(c);		// c in tens4dmm form
 	}
 	else if (t <= partialtime + eps) {
 
@@ -294,177 +319,20 @@ mat3ds FEMbeCmm::StressOld(FEMaterialPoint& mp)
 	}
 
 	mat3ds s = 1.0/J*((F*(S*F.transpose()))).sym();
-	
+	stress = s;
+
 	pt.m_Iemax = s.dotdot(dyad(F*N[1]))/(F*N[1]).norm2();			// circumferential stress, just for plotting, temporary
 
-	// The Cauchy stress is returned
-	return s;
-}
-
-//-----------------------------------------------------------------------------
-// This function calculates the spatial elasticity tangent tensor. 
-// It takes one parameter, the FEMaterialPoint and retursn a tens4ds object
-// which is a fourth-order tensor with major and minor symmetries.
-tens4dmm FEMbeCmm::SecantTangentOld(FEMaterialPoint& mp)
-{
-	// As in the Stress function, we need the data from the FEMaterialPoint
-	// class to calculate the tangent.
-	FEElasticMaterialPoint& et = *mp.ExtractData<FEElasticMaterialPoint>();
-	GRMaterialPoint& pt = *mp.ExtractData<GRMaterialPoint>();
-
-	// Get the deformation gradient and its determinant
-	mat3d &F = et.m_F;
-	double J = et.m_J;
-
-	double eps = std::numeric_limits<double>::epsilon();
-
-	// get current and end times
-	double t = GetFEModel()->GetTime().currentTime;
-	double endtime = GetFEModel()->GetCurrentStep()->m_tend;
-
-	endtime = 11.0;							// 11.0 | 31.0-32.0 (TEVG)
-	double partialtime = endtime;			// partialtime <= endtime | 10.0 | 10.4 (for TI calculation)
-	double sgr = min(t,partialtime);		// min(t,partialtime) | min(t,9.0)
-
-	// retrieve material position
-	vec3d  X = pt.m_r0;
-
-	double imper = 0.00;					// imper > 0 for TORTUOSITY (see Matlab script <NodesElementsAsy.m>) | 0.00 | 20.0
-	double rIo = 0.6468;					// 0.6468 | 0.5678
-	double hwaves = 2.0;
-	double lo = 30.0;
-	vec3d  Xcl = {0.0, imper/100.0*rIo*sin(hwaves*M_PI*X.z/lo), X.z};		// center line
-
-	vec3d NX = {X.x-Xcl.x,X.y-Xcl.y,X.z-Xcl.z};								// radial vector
-
-	double ro = sqrt(NX*NX);
-
-	NX /= ro;
-
-	// retrieve local element basis directions
-	vec3d N[3];
-
-	// pointwise, consistent with mesh generated with Matlab script <NodesElementsAsy.m>
-	N[2] = {0.0, imper/100.0*rIo*hwaves*M_PI/lo*cos(hwaves*M_PI*X.z/lo), 1.0}; N[2] = N[2]/sqrt(N[2]*N[2]);		// axial = d(Xcl)/d(z)
-	N[1] = {-NX.y, NX.x, NX.z};																					// circumferential
-	N[0] = N[2]^N[1];
-
-	// elementwise, from input file
-	// N[2] = pt.m_Q.col(0); N[1] = pt.m_Q.col(1); N[0] = pt.m_Q.col(2);							// axial, circumferential, radial
-
-	double phieo = 0.34;								// 0.34 (CMAME | KNOCKOUTS) | 1.00 (TEVG) | 1.0/3.0 (TEVG)
-	double phimo = 0.5*(1.0-phieo);
-	double phico = 0.5*(1.0-phieo);
-
-	double eta = 1.0;									// 1.0 | 1.0/3.0 (for uniform cases) | 0.714
-
-	double mu = 89.71;
-	double Get = 1.90;
-	double Gez = 1.62;
-
-	double alpha = 0.522;								// original orientation of diagonal collagen | 0.522 (CMAME | KNOCKOUTS) | 0.8713 (TEVG)
-
-	// original homeostatic parameters (adaptive)
-
-	// passive
-	double cm = 261.4;									// 261.4 (CMAME | KNOCKOUTS) | 46.61 (TEVG)
-	double dm = 0.24;
-	double Gm = 1.20;
-	double cc = 234.9;									// 234.9 (CMAME | KNOCKOUTS) | 328.475 (TEVG)
-	double dc = 4.08;
-	double Gc = 1.25;
+	// tangent
+	alpha = 0.522;								// original orientation of diagonal collagen | 0.522 (CMAME | KNOCKOUTS) | 0.8713 (TEVG)
 
 	// orientation fractions for collagen
-	double betat = 0.056;
-	double betaz = 0.067;
-	double betad = 0.5*(1.0 - betat - betaz);
-
-	vec3d  Np = N[1]*sin(alpha)+N[2]*cos(alpha);		// original diagonal fiber direction
-	vec3d  Nn = N[1]*sin(alpha)-N[2]*cos(alpha);		// idem for symmetric
-
-	// active
-	double Tmax = 250.0 * 0.0;							// 250.0 | 50.0 | 150.0 (for uniform cases, except for contractility -> 250)
-	double lamM = 1.1;
-	double lam0 = 0.4;
-	double CB = sqrt(log(2.0));							// such that (1-exp(-CB^2)) = 0.5
-	double CS = 0.5*CB * 1.0;							// such that (1-exp(- C^2)) = 0.0 for lt = 1/(1+CB/CS)^(1/3) = 0.7 and (1-exp(-C^2)) = 0.75 for lt = 2.0
-
-	// parameters at 4 weeks (maladaptive)
-
-	double cm4 = 155.7;									// c1t muscle at day 28
-	double dm4 = 1.20;									// c2t muscle
-	double Gm4 = 1.23;									// circumferential deposition stretch (smc)
-	double cc4 = 27.68;									// c1t collagen
-	double dc4 = 9.98;									// c2t collagen
-	double Gc4 = 1.21;									// deposition stretch (collagen)
-
-	double KsKi = 0.35;
-	double EPS  = 1.0+(1.0-1.0)*(sgr-1.0)/(endtime-1.0);
-
-	double KfKi   = 1.0;
-	double inflam = 0.0*(sgr-1.0)/(endtime-1.0);
-
-	double aexp = 1.0;									// 1.0 (KNOCKOUTS) | 0.0 (CMAME | TORTUOSITY)
-
-	double delta = 0.0;
+	Np = N[1]*sin(alpha)+N[2]*cos(alpha);		// original diagonal fiber direction
+	Nn = N[1]*sin(alpha)-N[2]*cos(alpha);		// idem for symmetric
 
 	// Ge from spectral decomposition
-	mat3ds Ge = 1.0/Get/Gez*dyad(N[0]) + Get*dyad(N[1]) + Gez*dyad(N[2]);
-
-	// define identity tensor and some useful dyadic products of the identity tensor
-	mat3dd  I(1.0);
-	tens4ds IxI = dyad1s(I);
-	tens4ds IoI = dyad4s(I);
-
-	// define right Cauchy-Green tensor
-	mat3ds  C = et.RightCauchyGreen();
-
-	// spatial moduli for elastin
-	tens4ds ce(0.0);								// phieo/J*(FcF:GecGe:Cehat:GecGe:FTcFT) = phieo/J*(FcF:GecGe:0:GecGe:FTcFT)
-
-	// computation of spatial moduli
-	tens4dmm css;
-	mat3ds sfpro;
-	double eigenval[3]; vec3d eigenvec[3];
+	Ge = 1.0/Get/Gez*dyad(N[0]) + Get*dyad(N[1]) + Gez*dyad(N[2]);
 	if (t <= 1.0 + eps) {
-
-		double Jdep = 0.9999;
-
-		double lm = 1.0e3*mu;
-
-		double lt = (F*N[1]).norm();
-		double lz = (F*N[2]).norm();
-		double lp = (F*Np).norm();
-		double ln = (F*Nn).norm();
-
-		double lmt2 = (Gm*lt)*(Gm*lt);
-		double lct2 = (Gc*lt)*(Gc*lt);
-		double lcz2 = (Gc*lz)*(Gc*lz);
-		double lcp2 = (Gc*lp)*(Gc*lp);
-		double lcn2 = (Gc*ln)*(Gc*ln);
-
-		mat3ds tent = dyad(F*N[1]);
-		mat3ds tenz = dyad(F*N[2]);
-		mat3ds tenp = dyad(F*Np);
-		mat3ds tenn = dyad(F*Nn);
-
-		// passive
-		tens4ds cf = phimo*(2.0*cm*(1.0+2.0*dm*(lmt2-1.0)*(lmt2-1.0))*exp(dm*(lmt2-1.0)*(lmt2-1.0))*pow(Gm,4)*dyad1s(tent))      +
-					 phico*(2.0*cc*(1.0+2.0*dc*(lct2-1.0)*(lct2-1.0))*exp(dc*(lct2-1.0)*(lct2-1.0))*pow(Gc,4)*dyad1s(tent)*betat +
-							2.0*cc*(1.0+2.0*dc*(lcz2-1.0)*(lcz2-1.0))*exp(dc*(lcz2-1.0)*(lcz2-1.0))*pow(Gc,4)*dyad1s(tenz)*betaz +
-							2.0*cc*(1.0+2.0*dc*(lcp2-1.0)*(lcp2-1.0))*exp(dc*(lcp2-1.0)*(lcp2-1.0))*pow(Gc,4)*dyad1s(tenp)*betad +
-							2.0*cc*(1.0+2.0*dc*(lcn2-1.0)*(lcn2-1.0))*exp(dc*(lcn2-1.0)*(lcn2-1.0))*pow(Gc,4)*dyad1s(tenn)*betad);
-
-		// active
-		tens4ds ca = phimo*2.0*Tmax*(1.0-exp(-CB*CB))*(1.0-pow((lamM-1.0)/(lamM-lam0),2))*dyad1s(tent);
-
-		cf /= J; ca /= J;
-
-		tens4ds c = ce + cf + ca;
-
-		c += lm/J*(IxI-2.0*log(Jdep*J)*IoI);
-
-		css = tens4dmm(c);		// c in tens4dmm form
 
 	}
 	else if (t <= partialtime + eps) {
@@ -631,7 +499,5 @@ tens4dmm FEMbeCmm::SecantTangentOld(FEMaterialPoint& mp)
 			 + svo/(1.0-delta)*(1.0+KsKi*(EPS*pow(rIrIo,-3)-1.0)-KfKi*inflam)*(IxIss-2.0*IoIss)
 			 - 3.0*svo/(1.0-delta)*KsKi*EPS*pow(rIrIo,-4)*(ro/rIo/lt*Ixntt-(ro-rIo)/rIo/lr*Ixnrr);
 	}
-
-	// return the elasticity tensor
-	return css;								// css cpfss cnss
+	tangent = css;
 }
