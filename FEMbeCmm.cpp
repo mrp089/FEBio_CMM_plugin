@@ -520,17 +520,17 @@ tens4dmm FEMbeCmm::SecantTangent(FEMaterialPoint& mp)
 		tens4dmm IxIss = tens4dmm(IxI);							// IxI in tens4dmm form
 		tens4dmm IoIss = tens4dmm(IoI);							// IoI in tens4dmm form
 
-		tens4dmm Ixsx = dyad1ss(I,sx);
-		tens4dmm smxI = dyad1ss(sm,I);
-		tens4dmm scxI = dyad1ss(sc,I);
-		tens4dmm saxI = dyad1ss(sa,I);
+		tens4dmm Ixsx = dyad1mm(I,sx);
+		tens4dmm smxI = dyad1mm(sm,I);
+		tens4dmm scxI = dyad1mm(sc,I);
+		tens4dmm saxI = dyad1mm(sa,I);
 		
 		mat3ds tenr = dyad(F*(Fio*N[0]));						// Fio needed for consistency (from computation of lr) 
 		mat3ds tent = dyad(F*(Fio*N[1]));
 		mat3ds tenz = dyad(F*(Fio*N[2]));
 		
-		tens4dmm Ixnrr = dyad1ss(I,tenr);
-		tens4dmm Ixntt = dyad1ss(I,tent);
+		tens4dmm Ixnrr = dyad1mm(I,tenr);
+		tens4dmm Ixntt = dyad1mm(I,tent);
 
 		// contribution due to constant Cauchy stresses at constituent level
 		tens4dmm cfss(0.0);
@@ -559,7 +559,7 @@ tens4dmm FEMbeCmm::SecantTangent(FEMaterialPoint& mp)
 
 				mat3ds ten2 = dyads(Fxeigenvec[i],Fxeigenvec[j]);
 
-				cfss -= component*dyad1ss(ten2,ten1);
+				cfss -= component*dyad1mm(ten2,ten1);
 
 				for (int k=0; k<3; k++) {
 
@@ -570,7 +570,7 @@ tens4dmm FEMbeCmm::SecantTangent(FEMaterialPoint& mp)
 
 					component = sfpro(i,j) / eigenval[i] / eigenval[j] / eigenval[k] / (eigenval[i] + eigenval[k]);
 
-					cfss -= component*dyad1ss(ten3,ten4);
+					cfss -= component*dyad1mm(ten3,ten4);
 				}
 			}
 		}
@@ -581,8 +581,8 @@ tens4dmm FEMbeCmm::SecantTangent(FEMaterialPoint& mp)
 		cfss += dphiRm*(smxI+saxI) + dphiRc*scxI;
 
 		// contribution due to the ratio of vasocontrictors to vasodilators in the active stress
-		tens4dmm saoxnrr = dyad1ss((R*sao*R.transpose()).sym(),tenr);
-		tens4dmm saoxntt = dyad1ss((R*sao*R.transpose()).sym(),tent);
+		tens4dmm saoxnrr = dyad1mm((R*sao*R.transpose()).sym(),tenr);
+		tens4dmm saoxntt = dyad1mm((R*sao*R.transpose()).sym(),tent);
 
 		// 1/J * FoF : [ J * phim * 1/(1.0-exp(-CB*CB)) * (Ui*sao*Ui) x d(1-exp(-Cratio^2))/d(C/2) ] : (Ft)o(Ft)
 		tens4dmm cass = phim * 6.0*Cratio*CS*EPS*pow(rIrIo,-4)*exp(-Cratio*Cratio)/(1.0-exp(-CB*CB)) * (ro/rIo/lt*saoxntt-(ro-rIo)/rIo/lr*saoxnrr);
@@ -613,14 +613,14 @@ tens4dmm FEMbeCmm::SecantTangent(FEMaterialPoint& mp)
 
 		mat3ds ten3 = aexp*tan(alpha)*(1.0/(lt*lt)*tent-1.0/(lz*lz)*tenz);		// 2*d(tan(alpha))/d(C) : (Ft)o(Ft)
 
-		cpnss += (phic*betad) * scphato * dyad1ss(ten1,ten3);					// 1/J * FoF : [ J * phicp * scphato * (Ui)o(Ui) : 2*d(NpxNp)/d(C) ] : (Ft)o(Ft)
-		cpnss += (phic*betad) * scnhato * dyad1ss(ten2,ten3);
+		cpnss += (phic*betad) * scphato * dyad1mm(ten1,ten3);					// 1/J * FoF : [ J * phicp * scphato * (Ui)o(Ui) : 2*d(NpxNp)/d(C) ] : (Ft)o(Ft)
+		cpnss += (phic*betad) * scnhato * dyad1mm(ten2,ten3);
 		
 		tens4dmm cess = tens4dmm(ce);							// ce in tens4dmm form
 
 		css = cess + cfss + cass + cpnss;
 		
-		css += 1.0/3.0*(2.0*sx.tr()*IoIss-2.0*Ixsx-ddotss(IxIss,css))
+		css += 1.0/3.0*(2.0*sx.tr()*IoIss-2.0*Ixsx-ddot(IxIss,css))
 			 + svo/(1.0-delta)*(1.0+KsKi*(EPS*pow(rIrIo,-3)-1.0)-KfKi*inflam)*(IxIss-2.0*IoIss)
 			 - 3.0*svo/(1.0-delta)*KsKi*EPS*pow(rIrIo,-4)*(ro/rIo/lt*Ixntt-(ro-rIo)/rIo/lr*Ixnrr);
 	}
