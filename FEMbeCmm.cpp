@@ -38,7 +38,7 @@ void GRMaterialPoint::Serialize(DumpStream& ar)
 	ar & m_Jo & m_svo & m_smo & m_sco & m_Fio & m_Jh & m_Fih & m_phic & m_Iemax;
 }
 
-void FEMbeCmm::StressTangent(FEMaterialPoint& mp, mat3ds& stress, tens4dmm& tangent, const bool get_stress, const bool get_tangent)
+void FEMbeCmm::StressTangent(FEMaterialPoint& mp, mat3ds& stress, tens4dmm& tangent)
 {
 	// The FEMaterialPoint classes are stored in a linked list. The specific material
 	// point data needed by this function can be accessed using the ExtractData member.
@@ -57,7 +57,6 @@ void FEMbeCmm::StressTangent(FEMaterialPoint& mp, mat3ds& stress, tens4dmm& tang
 
 	// get current and end times
 	const double t = GetFEModel()->GetTime().currentTime;
-//	const double endtime = GetFEModel()->GetCurrentStep()->m_tend;
 
 	const double endtime = 11.0;							// 11.0 | 31.0-32.0 (TEVG)
 	const double partialtime = endtime;			// partialtime <= endtime | 10.0 | 10.4 (for TI calculation)
@@ -137,7 +136,11 @@ void FEMbeCmm::StressTangent(FEMaterialPoint& mp, mat3ds& stress, tens4dmm& tang
 	const double delta = 0.0;
 
 	// compute U from polar decomposition of deformation gradient tensor
-	mat3ds U; mat3d R; F.right_polar(R,U);
+	mat3ds U; mat3d R;
+	F.right_polar(R,U);
+
+	double eigenval[3]; vec3d eigenvec[3];
+	U.eigen2(eigenval,eigenvec);
 
 	// right Cauchy-Green tensor and its inverse
 	const mat3ds C = et.RightCauchyGreen();
@@ -147,7 +150,7 @@ void FEMbeCmm::StressTangent(FEMaterialPoint& mp, mat3ds& stress, tens4dmm& tang
 	mat3ds Ge = 1.0/Get/Gez*dyad(N[0]) + Get*dyad(N[1]) + Gez*dyad(N[2]);
 	
 	// stress for elastin
-	const mat3ds Se = (phieo*mu*Ge*Ge).sym();						// phieo*Ge*Sehat*Ge = phieo*Ge*(mu*I)*Ge
+	mat3ds Se = (phieo*mu*Ge*Ge).sym();						// phieo*Ge*Sehat*Ge = phieo*Ge*(mu*I)*Ge
 
 	// computation of the second Piola-Kirchhoff stress
 	mat3ds S;
@@ -156,6 +159,8 @@ void FEMbeCmm::StressTangent(FEMaterialPoint& mp, mat3ds& stress, tens4dmm& tang
 	const mat3dd  I(1.0);
 	const tens4ds IxI = dyad1s(I);
 	const tens4ds IoI = dyad4s(I);
+	const tens4dmm IxIss = tens4dmm(IxI);							// IxI in tens4dmm form
+	const tens4dmm IoIss = tens4dmm(IoI);							// IoI in tens4dmm form
 
 	// spatial moduli for elastin
 	tens4ds ce(0.0);								// phieo/J*(FcF:GecGe:Cehat:GecGe:FTcFT) = phieo/J*(FcF:GecGe:0:GecGe:FTcFT)
@@ -163,34 +168,33 @@ void FEMbeCmm::StressTangent(FEMaterialPoint& mp, mat3ds& stress, tens4dmm& tang
 	// computation of spatial moduli
 	tens4dmm css;
 	mat3ds sfpro;
-	double eigenval[3]; vec3d eigenvec[3];
 	if (t <= 1.0 + eps) {
 		// compute stress
-		double Jdep = 0.9999;
-		double lm = 1.0e3*mu;
+		const double Jdep = 0.9999;
+		const double lm = 1.0e3*mu;
 		
-		double lt = (F*N[1]).norm();
-		double lz = (F*N[2]).norm();
-		double lp = (F*Np).norm();
-		double ln = (F*Nn).norm();
+		const double lt = (F*N[1]).norm();
+		const double lz = (F*N[2]).norm();
+		const double lp = (F*Np).norm();
+		const double ln = (F*Nn).norm();
 		
-		double lmt2 = (Gm*lt)*(Gm*lt);
-		double lct2 = (Gc*lt)*(Gc*lt);
-		double lcz2 = (Gc*lz)*(Gc*lz);
-		double lcp2 = (Gc*lp)*(Gc*lp);
-		double lcn2 = (Gc*ln)*(Gc*ln);
+		const double lmt2 = (Gm*lt)*(Gm*lt);
+		const double lct2 = (Gc*lt)*(Gc*lt);
+		const double lcz2 = (Gc*lz)*(Gc*lz);
+		const double lcp2 = (Gc*lp)*(Gc*lp);
+		const double lcn2 = (Gc*ln)*(Gc*ln);
 		
 		// passive
-		mat3ds Sm = (cm*(lmt2-1.0)*exp(dm*(lmt2-1.0)*(lmt2-1.0))*(Gm*Gm)*dyad(N[1]));
-		mat3ds Sc =	(cc*(lct2-1.0)*exp(dc*(lct2-1.0)*(lct2-1.0))*(Gc*Gc)*dyad(N[1])*betat +
-					 cc*(lcz2-1.0)*exp(dc*(lcz2-1.0)*(lcz2-1.0))*(Gc*Gc)*dyad(N[2])*betaz +
-					 cc*(lcp2-1.0)*exp(dc*(lcp2-1.0)*(lcp2-1.0))*(Gc*Gc)*dyad( Np )*betad +
-					 cc*(lcn2-1.0)*exp(dc*(lcn2-1.0)*(lcn2-1.0))*(Gc*Gc)*dyad( Nn )*betad );
+		const mat3ds Sm = (cm*(lmt2-1.0)*exp(dm*(lmt2-1.0)*(lmt2-1.0))*(Gm*Gm)*dyad(N[1]));
+		const mat3ds Sc =	(cc*(lct2-1.0)*exp(dc*(lct2-1.0)*(lct2-1.0))*(Gc*Gc)*dyad(N[1])*betat +
+							 cc*(lcz2-1.0)*exp(dc*(lcz2-1.0)*(lcz2-1.0))*(Gc*Gc)*dyad(N[2])*betaz +
+					 	 	 cc*(lcp2-1.0)*exp(dc*(lcp2-1.0)*(lcp2-1.0))*(Gc*Gc)*dyad( Np )*betad +
+							 cc*(lcn2-1.0)*exp(dc*(lcn2-1.0)*(lcn2-1.0))*(Gc*Gc)*dyad( Nn )*betad );
 
 		// active
-		mat3ds Sa = Tmax*(1.0-exp(-CB*CB))*(1.0-pow((lamM-1.0)/(lamM-lam0),2))*(lt*lt)*dyad(N[1]);
+		const mat3ds Sa = Tmax*(1.0-exp(-CB*CB))*(1.0-pow((lamM-1.0)/(lamM-lam0),2))*(lt*lt)*dyad(N[1]);
 		
-		mat3ds Sx = Se + phimo * Sm + phico * Sc + phimo * Sa;
+		const mat3ds Sx = Se + phimo * Sm + phico * Sc + phimo * Sa;
 		
 		S = Sx + Ci*lm*log(Jdep*J);
 		
@@ -206,10 +210,10 @@ void FEMbeCmm::StressTangent(FEMaterialPoint& mp, mat3ds& stress, tens4dmm& tang
 		pt.m_phic  = phico;
 
 		// compute tangent
-		mat3ds tent = dyad(F*N[1]);
-		mat3ds tenz = dyad(F*N[2]);
-		mat3ds tenp = dyad(F*Np);
-		mat3ds tenn = dyad(F*Nn);
+		const mat3ds tent = dyad(F*N[1]);
+		const mat3ds tenz = dyad(F*N[2]);
+		const mat3ds tenp = dyad(F*Np);
+		const mat3ds tenn = dyad(F*Nn);
 
 		// passive
 		tens4ds cf = phimo*(2.0*cm*(1.0+2.0*dm*(lmt2-1.0)*(lmt2-1.0))*exp(dm*(lmt2-1.0)*(lmt2-1.0))*pow(Gm,4)*dyad1s(tent))      +
@@ -230,12 +234,12 @@ void FEMbeCmm::StressTangent(FEMaterialPoint& mp, mat3ds& stress, tens4dmm& tang
 		css = tens4dmm(c);		// c in tens4dmm form
 	}
 	else if (t <= partialtime + eps) {
-
-		double    Jo = pt.m_Jo;
-		double   svo = pt.m_svo;
+		// compute stress
+		const double    Jo = pt.m_Jo;
+		const double   svo = pt.m_svo;
 		mat3ds  &smo = pt.m_smo;
 		mat3ds  &sco = pt.m_sco;
-		mat3d    Fio = pt.m_Fio;
+		const mat3d    Fio = pt.m_Fio;
 		double &phic = pt.m_phic;
 		
 		phic = phico;																// initial guess
@@ -248,38 +252,38 @@ void FEMbeCmm::StressTangent(FEMaterialPoint& mp, mat3ds& stress, tens4dmm& tang
 		} while (abs(Rphi) > sqrt(eps));											// && abs(Rphi/Rphi0) > sqrt(eps) && j<10
 		phic = phic-Rphi/dRdc;														// converge phase -> phic (updated in material point memory)
 
-		double phim = phimo/(J/Jo)*pow(J/Jo*phic/phico,eta);	// phim from <J*phim/phimo=(J*phic/phico)^eta>
+		const double phim = phimo/(J/Jo)*pow(J/Jo*phic/phico,eta);	// phim from <J*phim/phimo=(J*phic/phico)^eta>
 		
 		// recompute remodeled original stresses for smc and collagen (from remodeled natural configurations)
 
-		double lto = (Fio.inverse()*N[1]).norm();
-		double lzo = (Fio.inverse()*N[2]).norm();
-		double lpo = (Fio.inverse()*Np).norm();					// original referential stretch for deposition stretch calculation
-		double lno = (Fio.inverse()*Nn).norm();					// idem for symmetric
+		const double lto = (Fio.inverse()*N[1]).norm();
+		const double lzo = (Fio.inverse()*N[2]).norm();
+		const double lpo = (Fio.inverse()*Np).norm();					// original referential stretch for deposition stretch calculation
+		const double lno = (Fio.inverse()*Nn).norm();					// idem for symmetric
 		
-		double lmt2 = (Gm*lto)*(Gm*lto);
-		double lct2 = (Gc*lto)*(Gc*lto);
-		double lcz2 = (Gc*lzo)*(Gc*lzo);
-		double lcp2 = (Gc*lpo)*(Gc*lpo);						// deposition stretch calculation (computational purposes)
-		double lcn2 = (Gc*lno)*(Gc*lno);						// idem for symmetric
+		const double lmt2 = (Gm*lto)*(Gm*lto);
+		const double lct2 = (Gc*lto)*(Gc*lto);
+		const double lcz2 = (Gc*lzo)*(Gc*lzo);
+		const double lcp2 = (Gc*lpo)*(Gc*lpo);						// deposition stretch calculation (computational purposes)
+		const double lcn2 = (Gc*lno)*(Gc*lno);						// idem for symmetric
 
-		double lr = (F*(Fio*N[0])).norm();						// lr -> 1 for F -> Fo
-		double lt = (F*(Fio*N[1])).norm();						// lt -> 1 for F -> Fo
-		double lz = (F*(Fio*N[2])).norm();						// lz -> 1 for F -> Fo
+		const double lr = (F*(Fio*N[0])).norm();						// lr -> 1 for F -> Fo
+		const double lt = (F*(Fio*N[1])).norm();						// lt -> 1 for F -> Fo
+		const double lz = (F*(Fio*N[2])).norm();						// lz -> 1 for F -> Fo
 
 		alpha = atan(tan(alpha)*pow(lt/lz,aexp));				// update alpha
 		Np = N[1]*sin(alpha)+N[2]*cos(alpha);					// update diagonal fiber vector
 		Nn = N[1]*sin(alpha)-N[2]*cos(alpha);					// idem for symmetric
 		
 		// passive
-		mat3ds Smo = (cm*(lmt2-1.0)*exp(dm*(lmt2-1.0)*(lmt2-1.0))*(Gm*Gm)*dyad(N[1]));
-		mat3ds Sco = (cc*(lct2-1.0)*exp(dc*(lct2-1.0)*(lct2-1.0))*(Gc*Gc)*dyad(N[1])*betat +
+		const mat3ds Smo = (cm*(lmt2-1.0)*exp(dm*(lmt2-1.0)*(lmt2-1.0))*(Gm*Gm)*dyad(N[1]));
+		const mat3ds Sco = (cc*(lct2-1.0)*exp(dc*(lct2-1.0)*(lct2-1.0))*(Gc*Gc)*dyad(N[1])*betat +
 					  cc*(lcz2-1.0)*exp(dc*(lcz2-1.0)*(lcz2-1.0))*(Gc*Gc)*dyad(N[2])*betaz +
 					  cc*(lcp2-1.0)*exp(dc*(lcp2-1.0)*(lcp2-1.0))*(Gc*Gc)*dyad( Np )*betad +
 					  cc*(lcn2-1.0)*exp(dc*(lcn2-1.0)*(lcn2-1.0))*(Gc*Gc)*dyad( Nn )*betad );
 
 		// active
-		mat3ds Sao = Tmax*(1.0-exp(-CB*CB))*(1.0-pow((lamM-1.0)/(lamM-lam0),2))*(lto*lto)*dyad(N[1]);
+		const mat3ds Sao = Tmax*(1.0-exp(-CB*CB))*(1.0-pow((lamM-1.0)/(lamM-lam0),2))*(lto*lto)*dyad(N[1]);
 		
 		mat3ds Uo; mat3d Ro; (Fio.inverse()).right_polar(Ro,Uo);	// Uo from polar decomposition
 		mat3d  uo(Uo);
@@ -287,7 +291,7 @@ void FEMbeCmm::StressTangent(FEMaterialPoint& mp, mat3ds& stress, tens4dmm& tang
 		smo = 1.0/Jo*(uo*(Smo*uo)).sym();
 		sco = 1.0/Jo*(uo*(Sco*uo)).sym();
 
-		mat3ds sao = 1.0/Jo*(uo*(Sao*uo)).sym();
+		const mat3ds sao = 1.0/Jo*(uo*(Sao*uo)).sym();
 
 		// compute current stresses
 		
@@ -296,116 +300,54 @@ void FEMbeCmm::StressTangent(FEMaterialPoint& mp, mat3ds& stress, tens4dmm& tang
 		mat3ds sNm = phim*smo;									// phim*smhato = phim*smo
 		mat3ds sNc = phic*sco;									// phic*schato = phic*sco
 
-		mat3ds sNf = sNm + sNc;
+		const mat3ds sNf = sNm + sNc;
 
-		double Cratio = CB-CS*(EPS*pow(rIrIo,-3)-1.0);
+		const double Cratio = CB-CS*(EPS*pow(rIrIo,-3)-1.0);
 		mat3ds sNa; sNa.zero();
 		if (Cratio>0) sNa = phim*(1.0-exp(-Cratio*Cratio))/(1.0-exp(-CB*CB))*sao;
 
-		mat3ds Ui = U.inverse();            					// inverse of U
-		mat3d  ui(Ui);
+		const mat3ds Ui = U.inverse();            					// inverse of U
+		const mat3d  ui(Ui);
 
-		mat3ds Sf = J*(ui*sNf*ui).sym();						// J*Ui*sNf*Ui
-		mat3ds Sa = J*(ui*sNa*ui).sym();						// J*Ui*sNa*Ui
+		const mat3ds Sf = J*(ui*sNf*ui).sym();						// J*Ui*sNf*Ui
+		const mat3ds Sa = J*(ui*sNa*ui).sym();						// J*Ui*sNa*Ui
 		
-		mat3ds Sx = Se + Sf + Sa;
+		const mat3ds Sx = Se + Sf + Sa;
 
-		double p = 1.0/3.0/J*Sx.dotdot(C) - svo/(1.0-delta)*(1.0+KsKi*(EPS*pow(rIrIo,-3)-1.0)-KfKi*inflam);		// Ups = 1 -> p
+		const double p = 1.0/3.0/J*Sx.dotdot(C) - svo/(1.0-delta)*(1.0+KsKi*(EPS*pow(rIrIo,-3)-1.0)-KfKi*inflam);		// Ups = 1 -> p
 		
 		S = Sx - J*p*Ci;
 		
 		pt.m_Jh  = J;
 		pt.m_Fih = F.inverse();
-	}
 
-	mat3ds s = 1.0/J*((F*(S*F.transpose()))).sym();
-	stress = s;
-
-	pt.m_Iemax = s.dotdot(dyad(F*N[1]))/(F*N[1]).norm2();			// circumferential stress, just for plotting, temporary
-
-	// tangent
-	alpha = 0.522;								// original orientation of diagonal collagen | 0.522 (CMAME | KNOCKOUTS) | 0.8713 (TEVG)
-
-	// orientation fractions for collagen
-	Np = N[1]*sin(alpha)+N[2]*cos(alpha);		// original diagonal fiber direction
-	Nn = N[1]*sin(alpha)-N[2]*cos(alpha);		// idem for symmetric
-
-	// Ge from spectral decomposition
-	Ge = 1.0/Get/Gez*dyad(N[0]) + Get*dyad(N[1]) + Gez*dyad(N[2]);
-	if (t <= 1.0 + eps) {
-
-	}
-	else if (t <= partialtime + eps) {
-
-		double   Jo = pt.m_Jo;
-		double  svo = pt.m_svo;
-		mat3ds  smo = pt.m_smo;									// smo from stress computation phase (from remodeled natural configuration)
-		mat3ds  sco = pt.m_sco;									// sco from stress computation phase (from remodeled natural configuration)
-		mat3d   Fio = pt.m_Fio;
-		double phic = pt.m_phic;								// converged phic from stress computation phase
-
-		double phim = phimo/(J/Jo)*pow(J/Jo*phic/phico,eta);	// phim from <J*phim/phimo=(J*phic/phico)^eta>
-
-		mat3ds U; mat3d R; F.right_polar(R,U);
-
-		U.eigen2(eigenval,eigenvec);
-		mat3ds Ui = U.inverse();            					// inverse of U
-		mat3d  ui(Ui);
+		//compute tangent
 
 		// compute current stresses
-
-		mat3ds sNm = smo;										// phim*smhato = phim*smo
-		mat3ds sNc = sco;										// phic*schato = phic*sco
-
-		// active
-		mat3ds Uo; mat3d Ro; (Fio.inverse()).right_polar(Ro,Uo); mat3d uo(Uo);	// Uo from polar decomposition
-
-		double lto = (Fio.inverse()*N[1]).norm();
-		mat3ds Sao = Tmax*(1.0-exp(-CB*CB))*(1.0-pow((lamM-1.0)/(lamM-lam0),2))*(lto*lto)*dyad(N[1]);
-		mat3ds sao = 1.0/Jo*(uo*(Sao*uo)).sym();
-
-		double lr = (F*(Fio*N[0])).norm();						// lr -> 1 for F -> Fo
-		double lt = (F*(Fio*N[1])).norm();						// lt -> 1 for F -> Fo
-
-		double rIrIo = ro/rIo*lt-(ro-rIo)/rIo*lr;				// rIrIo -> rIorIo = 1 for F -> Fo
-
-		double Cratio = CB-CS*(EPS*pow(rIrIo,-3)-1.0);
-		mat3ds sNa; sNa.zero();
-		if (Cratio>0) sNa = (1.0-exp(-Cratio*Cratio))/(1.0-exp(-CB*CB))*sao;
+		sNm = smo;										// phim*smhato = phim*smo
+		sNc = sco;										// phic*schato = phic*sco
 
 		// 2nd P-K stresses
-		mat3ds Se = (phieo*mu*Ge*Ge).sym();								// phieo*Ge*Sehat*Ge = phieo*Ge*(mu*I)*Ge
-		mat3ds Sm = J*(ui*sNm*ui).sym();						// J*Ui*sNm*Ui
-		mat3ds Sc = J*(ui*sNc*ui).sym();						// J*Ui*sNc*Ui
-		mat3ds Sa = J*(ui*sNa*ui).sym();						// J*Ui*sNa*Ui
-
-		mat3ds Sf = phim*Sm+phic*Sc;							// J*Ui*sNf*Ui
-		mat3ds Sx = Se+Sf+phim*Sa;
+		const mat3ds Sm = J*(ui*sNm*ui).sym();						// J*Ui*sNm*Ui
+		const mat3ds Sc = J*(ui*sNc*ui).sym();						// J*Ui*sNc*Ui
 
 		// associated Cauchy stresses
-		mat3ds sm = 1.0/J*(F*(Sm*F.transpose())).sym();
-		mat3ds sc = 1.0/J*(F*(Sc*F.transpose())).sym();
-		mat3ds sa = 1.0/J*(F*(Sa*F.transpose())).sym();
-		mat3ds sx = 1.0/J*(F*(Sx*F.transpose())).sym();
+		const mat3ds sm = 1.0/J*(F*(Sm*F.transpose())).sym();
+		const mat3ds sc = 1.0/J*(F*(Sc*F.transpose())).sym();
+		const mat3ds sa = 1.0/J*(F*(Sa*F.transpose())).sym();
+		const mat3ds sx = 1.0/J*(F*(Sx*F.transpose())).sym();
 
-		double p = 1.0/3.0/J*Sx.dotdot(C)-svo/(1.0-delta)*(1.0+KsKi*(EPS*pow(rIrIo,-3)-1.0)-KfKi*inflam);	// Ups = 1 -> p
+		const tens4dmm Ixsx = dyad1mm(I,sx);
+		const tens4dmm smxI = dyad1mm(sm,I);
+		const tens4dmm scxI = dyad1mm(sc,I);
+		const tens4dmm saxI = dyad1mm(sa,I);
 
-		// compute tangent
+		const mat3ds tenr = dyad(F*(Fio*N[0]));						// Fio needed for consistency (from computation of lr)
+		const mat3ds tent = dyad(F*(Fio*N[1]));
+		const mat3ds tenz = dyad(F*(Fio*N[2]));
 
-		tens4dmm IxIss = tens4dmm(IxI);							// IxI in tens4dmm form
-		tens4dmm IoIss = tens4dmm(IoI);							// IoI in tens4dmm form
-
-		tens4dmm Ixsx = dyad1mm(I,sx);
-		tens4dmm smxI = dyad1mm(sm,I);
-		tens4dmm scxI = dyad1mm(sc,I);
-		tens4dmm saxI = dyad1mm(sa,I);
-
-		mat3ds tenr = dyad(F*(Fio*N[0]));						// Fio needed for consistency (from computation of lr)
-		mat3ds tent = dyad(F*(Fio*N[1]));
-		mat3ds tenz = dyad(F*(Fio*N[2]));
-
-		tens4dmm Ixnrr = dyad1mm(I,tenr);
-		tens4dmm Ixntt = dyad1mm(I,tent);
+		const tens4dmm Ixnrr = dyad1mm(I,tenr);
+		const tens4dmm Ixntt = dyad1mm(I,tent);
 
 		// contribution due to constant Cauchy stresses at constituent level
 		tens4dmm cfss(0.0);
@@ -450,48 +392,36 @@ void FEMbeCmm::StressTangent(FEMaterialPoint& mp, mat3ds& stress, tens4dmm& tang
 			}
 		}
 
-		double dphiRm = phimo*eta*pow(J/Jo*phic/phico,eta-1.0)/(phimo*eta*pow(J/Jo*phic/phico,eta-1.0)+phico);
-		double dphiRc = phico/(phimo*eta*pow(J/Jo*phic/phico,eta-1.0)+phico);
+		const double dphiRm = phimo*eta*pow(J/Jo*phic/phico,eta-1.0)/(phimo*eta*pow(J/Jo*phic/phico,eta-1.0)+phico);
+		const double dphiRc = phico/(phimo*eta*pow(J/Jo*phic/phico,eta-1.0)+phico);
 
 		cfss += dphiRm*(smxI+saxI) + dphiRc*scxI;
 
 		// contribution due to the ratio of vasocontrictors to vasodilators in the active stress
-		tens4dmm saoxnrr = dyad1mm((R*sao*R.transpose()).sym(),tenr);
-		tens4dmm saoxntt = dyad1mm((R*sao*R.transpose()).sym(),tent);
+		const tens4dmm saoxnrr = dyad1mm((R*sao*R.transpose()).sym(),tenr);
+		const tens4dmm saoxntt = dyad1mm((R*sao*R.transpose()).sym(),tent);
 
 		// 1/J * FoF : [ J * phim * 1/(1.0-exp(-CB*CB)) * (Ui*sao*Ui) x d(1-exp(-Cratio^2))/d(C/2) ] : (Ft)o(Ft)
-		tens4dmm cass = phim * 6.0*Cratio*CS*EPS*pow(rIrIo,-4)*exp(-Cratio*Cratio)/(1.0-exp(-CB*CB)) * (ro/rIo/lt*saoxntt-(ro-rIo)/rIo/lr*saoxnrr);
+		const tens4dmm cass = phim * 6.0*Cratio*CS*EPS*pow(rIrIo,-4)*exp(-Cratio*Cratio)/(1.0-exp(-CB*CB)) * (ro/rIo/lt*saoxntt-(ro-rIo)/rIo/lr*saoxnrr);
 
 		// contribution due to change in Cauchy stresses at constituent level (orientation only, for now)
 		tens4dmm cpnss(0.0);
 
-		double lpo = (Fio.inverse()*Np).norm();					// original referential stretch for deposition stretch calculation
-		double lno = (Fio.inverse()*Nn).norm();					// idem for symmetric
+		const double scphato = cc*(lcp2-1.0)*exp(dc*(lcp2-1.0)*(lcp2-1.0))*(Gc*Gc);	// constant stress magnitude at constituent level
+		const double scnhato = cc*(lcn2-1.0)*exp(dc*(lcn2-1.0)*(lcn2-1.0))*(Gc*Gc);
 
-		double lcp2 = (Gc*lpo)*(Gc*lpo);						// deposition stretch calculation (computational purposes)
-		double lcn2 = (Gc*lno)*(Gc*lno);						// idem for symmetric
+		const vec3d dNpdta = (N[1]-N[2]*tan(alpha))*pow(1+pow(tan(alpha),2),-1.5);	// d(Np)/d(tan(alpha))
+		const vec3d dNndta = (N[1]+N[2]*tan(alpha))*pow(1+pow(tan(alpha),2),-1.5);
 
-		double lz = (F*(Fio*N[2])).norm();						// lz -> 1 for F -> Fo
+		const mat3ds ten1 = 1.0/Jo*dyads(R*(Uo*dNpdta),R*(Uo*Np));					// FoF : (Ui)o(Ui) : d(NpxNp)/d(tan(alpha)), with Jo and Uo needed for consistency (from computation of sco)
+		const mat3ds ten2 = 1.0/Jo*dyads(R*(Uo*dNndta),R*(Uo*Nn));
 
-		alpha = atan(tan(alpha)*pow(lt/lz,aexp));				// update alpha
-		Np = N[1]*sin(alpha)+N[2]*cos(alpha);					// update diagonal fiber vector
-		Nn = N[1]*sin(alpha)-N[2]*cos(alpha);					// idem for symmetric
-
-		double scphato = cc*(lcp2-1.0)*exp(dc*(lcp2-1.0)*(lcp2-1.0))*(Gc*Gc);	// constant stress magnitude at constituent level
-		double scnhato = cc*(lcn2-1.0)*exp(dc*(lcn2-1.0)*(lcn2-1.0))*(Gc*Gc);
-
-		vec3d dNpdta = (N[1]-N[2]*tan(alpha))*pow(1+pow(tan(alpha),2),-1.5);	// d(Np)/d(tan(alpha))
-		vec3d dNndta = (N[1]+N[2]*tan(alpha))*pow(1+pow(tan(alpha),2),-1.5);
-
-		mat3ds ten1 = 1.0/Jo*dyads(R*(Uo*dNpdta),R*(Uo*Np));					// FoF : (Ui)o(Ui) : d(NpxNp)/d(tan(alpha)), with Jo and Uo needed for consistency (from computation of sco)
-		mat3ds ten2 = 1.0/Jo*dyads(R*(Uo*dNndta),R*(Uo*Nn));
-
-		mat3ds ten3 = aexp*tan(alpha)*(1.0/(lt*lt)*tent-1.0/(lz*lz)*tenz);		// 2*d(tan(alpha))/d(C) : (Ft)o(Ft)
+		const mat3ds ten3 = aexp*tan(alpha)*(1.0/(lt*lt)*tent-1.0/(lz*lz)*tenz);		// 2*d(tan(alpha))/d(C) : (Ft)o(Ft)
 
 		cpnss += (phic*betad) * scphato * dyad1mm(ten1,ten3);					// 1/J * FoF : [ J * phicp * scphato * (Ui)o(Ui) : 2*d(NpxNp)/d(C) ] : (Ft)o(Ft)
 		cpnss += (phic*betad) * scnhato * dyad1mm(ten2,ten3);
 
-		tens4dmm cess = tens4dmm(ce);							// ce in tens4dmm form
+		const tens4dmm cess = tens4dmm(ce);							// ce in tens4dmm form
 
 		css = cess + cfss + cass + cpnss;
 
@@ -499,5 +429,11 @@ void FEMbeCmm::StressTangent(FEMaterialPoint& mp, mat3ds& stress, tens4dmm& tang
 			 + svo/(1.0-delta)*(1.0+KsKi*(EPS*pow(rIrIo,-3)-1.0)-KfKi*inflam)*(IxIss-2.0*IoIss)
 			 - 3.0*svo/(1.0-delta)*KsKi*EPS*pow(rIrIo,-4)*(ro/rIo/lt*Ixntt-(ro-rIo)/rIo/lr*Ixnrr);
 	}
+
+	mat3ds s = 1.0/J*((F*(S*F.transpose()))).sym();
+	stress = s;
+
+	pt.m_Iemax = s.dotdot(dyad(F*N[1]))/(F*N[1]).norm2();			// circumferential stress, just for plotting, temporary
+
 	tangent = css;
 }

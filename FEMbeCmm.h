@@ -61,7 +61,7 @@ public:
 	}
 
 public:
-	void StressTangent(FEMaterialPoint& mp, mat3ds& stress, tens4dmm& tangent, const bool get_stress, const bool get_tangent);
+	void StressTangent(FEMaterialPoint& mp, mat3ds& stress, tens4dmm& tangent);
 	mat3ds StressOld(FEMaterialPoint& pt);
 	tens4dmm SecantTangentOld(FEMaterialPoint& pt);
 
@@ -71,7 +71,7 @@ public:
 	virtual mat3ds Stress(FEMaterialPoint& pt){
 		mat3ds stress;
 		tens4dmm tangent;
-		StressTangent(pt, stress, tangent, true, false);
+		StressTangent(pt, stress, tangent);
 		return stress;
 	}
 
@@ -84,7 +84,7 @@ public:
 	virtual tens4dmm SecantTangent(FEMaterialPoint& pt) {
 		mat3ds stress;
 		tens4dmm tangent;
-		StressTangent(pt, stress, tangent, false, true);
+		StressTangent(pt, stress, tangent);
 		return tangent;
 	}
 
