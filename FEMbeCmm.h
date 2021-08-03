@@ -42,6 +42,7 @@ public:
 	// This function calculates the spatial elasticity tangent tensor. 
 	// It takes one parameter, the FEMaterialPoint and retursn a tens4ds object
 	// which is a fourth-order tensor with major and minor symmetries.
-	virtual tens4dss Tangent(FEMaterialPoint& pt);
+	virtual tens4ds Tangent(FEMaterialPoint& pt) {};
+	virtual tens4dmm SecantTangent(FEMaterialPoint& pt);
 
 };

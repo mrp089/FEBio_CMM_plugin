@@ -265,7 +265,7 @@ mat3ds FEMbeCmm::Stress(FEMaterialPoint& mp)
 // This function calculates the spatial elasticity tangent tensor. 
 // It takes one parameter, the FEMaterialPoint and retursn a tens4ds object
 // which is a fourth-order tensor with major and minor symmetries.
-tens4dss FEMbeCmm::Tangent(FEMaterialPoint& mp)
+tens4dmm FEMbeCmm::SecantTangent(FEMaterialPoint& mp)
 {
 	// As in the Stress function, we need the data from the FEElasticMaterialPoint
 	// class to calculate the tangent.
@@ -382,7 +382,7 @@ tens4dss FEMbeCmm::Tangent(FEMaterialPoint& mp)
 	tens4ds ce(0.0);								// phieo/J*(FcF:GecGe:Cehat:GecGe:FTcFT) = phieo/J*(FcF:GecGe:0:GecGe:FTcFT)
 
 	// computation of spatial moduli
-	tens4dss css;
+	tens4dmm css;
 	mat3ds sfpro;
 	double eigenval[3]; vec3d eigenvec[3];
 	if (t <= 1.0 + eps) {
@@ -423,7 +423,7 @@ tens4dss FEMbeCmm::Tangent(FEMaterialPoint& mp)
 		
 		c += lm/J*(IxI-2.0*log(Jdep*J)*IoI);
 
-		css = tens4dss(c);		// c in tens4dss form
+		css = tens4dmm(c);		// c in tens4dmm form
 
 	}
 	else if (t <= partialtime + eps) {
@@ -483,23 +483,23 @@ tens4dss FEMbeCmm::Tangent(FEMaterialPoint& mp)
 
 		// compute tangent
 
-		tens4dss IxIss = tens4dss(IxI);							// IxI in tens4dss form
-		tens4dss IoIss = tens4dss(IoI);							// IoI in tens4dss form
+		tens4dmm IxIss = tens4dmm(IxI);							// IxI in tens4dmm form
+		tens4dmm IoIss = tens4dmm(IoI);							// IoI in tens4dmm form
 
-		tens4dss Ixsx = dyad1ss(I,sx);
-		tens4dss smxI = dyad1ss(sm,I);
-		tens4dss scxI = dyad1ss(sc,I);
-		tens4dss saxI = dyad1ss(sa,I);
+		tens4dmm Ixsx = dyad1ss(I,sx);
+		tens4dmm smxI = dyad1ss(sm,I);
+		tens4dmm scxI = dyad1ss(sc,I);
+		tens4dmm saxI = dyad1ss(sa,I);
 		
 		mat3ds tenr = dyad(F*(Fio*N[0]));						// Fio needed for consistency (from computation of lr) 
 		mat3ds tent = dyad(F*(Fio*N[1]));
 		mat3ds tenz = dyad(F*(Fio*N[2]));
 		
-		tens4dss Ixnrr = dyad1ss(I,tenr);
-		tens4dss Ixntt = dyad1ss(I,tent);
+		tens4dmm Ixnrr = dyad1ss(I,tenr);
+		tens4dmm Ixntt = dyad1ss(I,tent);
 
 		// contribution due to constant Cauchy stresses at constituent level
-		tens4dss cfss(0.0);
+		tens4dmm cfss(0.0);
 
 		sfpro.zero();
 		sfpro(0,0) = eigenvec[0]*((phim*sNm+phic*sNc+phim*sNa)*eigenvec[0]);
@@ -547,14 +547,14 @@ tens4dss FEMbeCmm::Tangent(FEMaterialPoint& mp)
 		cfss += dphiRm*(smxI+saxI) + dphiRc*scxI;
 
 		// contribution due to the ratio of vasocontrictors to vasodilators in the active stress
-		tens4dss saoxnrr = dyad1ss((R*sao*R.transpose()).sym(),tenr);
-		tens4dss saoxntt = dyad1ss((R*sao*R.transpose()).sym(),tent);
+		tens4dmm saoxnrr = dyad1ss((R*sao*R.transpose()).sym(),tenr);
+		tens4dmm saoxntt = dyad1ss((R*sao*R.transpose()).sym(),tent);
 
 		// 1/J * FoF : [ J * phim * 1/(1.0-exp(-CB*CB)) * (Ui*sao*Ui) x d(1-exp(-Cratio^2))/d(C/2) ] : (Ft)o(Ft)
-		tens4dss cass = phim * 6.0*Cratio*CS*EPS*pow(rIrIo,-4)*exp(-Cratio*Cratio)/(1.0-exp(-CB*CB)) * (ro/rIo/lt*saoxntt-(ro-rIo)/rIo/lr*saoxnrr);
+		tens4dmm cass = phim * 6.0*Cratio*CS*EPS*pow(rIrIo,-4)*exp(-Cratio*Cratio)/(1.0-exp(-CB*CB)) * (ro/rIo/lt*saoxntt-(ro-rIo)/rIo/lr*saoxnrr);
 
 		// contribution due to change in Cauchy stresses at constituent level (orientation only, for now)
-		tens4dss cpnss(0.0);
+		tens4dmm cpnss(0.0);
 
 		double lpo = (Fio.inverse()*Np).norm();					// original referential stretch for deposition stretch calculation
 		double lno = (Fio.inverse()*Nn).norm();					// idem for symmetric
@@ -582,7 +582,7 @@ tens4dss FEMbeCmm::Tangent(FEMaterialPoint& mp)
 		cpnss += (phic*betad) * scphato * dyad1ss(ten1,ten3);					// 1/J * FoF : [ J * phicp * scphato * (Ui)o(Ui) : 2*d(NpxNp)/d(C) ] : (Ft)o(Ft)
 		cpnss += (phic*betad) * scnhato * dyad1ss(ten2,ten3);
 		
-		tens4dss cess = tens4dss(ce);							// ce in tens4dss form
+		tens4dmm cess = tens4dmm(ce);							// ce in tens4dmm form
 
 		css = cess + cfss + cass + cpnss;
 		
