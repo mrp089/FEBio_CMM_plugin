@@ -3,6 +3,8 @@
 #include "FECore/FEAnalysis.h"					// to get end time
 #include "FECore/FEModel.h"						// to get current time
 #include <iostream>								// to use cin.get()
+#include <sstream>
+#include <signal.h>
 #define _USE_MATH_DEFINES						// to introduce pi constant (1/2)
 #include <math.h>								// to introduce pi constant (2/2)
 #include "FECore/log.h"							// to print to log file and/or screen
@@ -125,8 +127,8 @@ void FEMbeCmm::StressTangent(FEMaterialPoint& mp, mat3ds& stress, tens4dmm& tang
 	const double CB = sqrt(log(2.0));							// such that (1-exp(-CB^2)) = 0.5
 	const double CS = 0.5*CB * 1.0;							// such that (1-exp( -C^2)) = 0.0 for lt = 1/(1+CB/CS)^(1/3) = 0.7 and (1-exp(-C^2)) = 0.75 for lt = 2.0
 
-	double KsKi = 0.35;
-	double EPS  = 1.0+(1.0-1.0)*(sgr-1.0)/(endtime-1.0);
+	const double KsKi = 0.35;
+	const double EPS  = 1.0+(1.0-1.0)*(sgr-1.0)/(endtime-1.0);
 
 	const double KfKi   = 1.0;
 	const double inflam = 0.0*(sgr-1.0)/(endtime-1.0);
@@ -136,8 +138,7 @@ void FEMbeCmm::StressTangent(FEMaterialPoint& mp, mat3ds& stress, tens4dmm& tang
 	const double delta = 0.0;
 
 	// compute U from polar decomposition of deformation gradient tensor
-	mat3ds U; mat3d R;
-	F.right_polar(R,U);
+	mat3ds U; mat3d R; F.right_polar(R,U);
 
 	double eigenval[3]; vec3d eigenvec[3];
 	U.eigen2(eigenval,eigenvec);
@@ -147,10 +148,10 @@ void FEMbeCmm::StressTangent(FEMaterialPoint& mp, mat3ds& stress, tens4dmm& tang
 	const mat3ds Ci = C.inverse();
 
 	// Ge from spectral decomposition
-	mat3ds Ge = 1.0/Get/Gez*dyad(N[0]) + Get*dyad(N[1]) + Gez*dyad(N[2]);
+	const mat3ds Ge = 1.0/Get/Gez*dyad(N[0]) + Get*dyad(N[1]) + Gez*dyad(N[2]);
 	
 	// stress for elastin
-	mat3ds Se = (phieo*mu*Ge*Ge).sym();						// phieo*Ge*Sehat*Ge = phieo*Ge*(mu*I)*Ge
+	const mat3ds Se = (phieo*mu*Ge*Ge).sym();						// phieo*Ge*Sehat*Ge = phieo*Ge*(mu*I)*Ge
 
 	// computation of the second Piola-Kirchhoff stress
 	mat3ds S;
@@ -237,10 +238,10 @@ void FEMbeCmm::StressTangent(FEMaterialPoint& mp, mat3ds& stress, tens4dmm& tang
 		// compute stress
 		const double    Jo = pt.m_Jo;
 		const double   svo = pt.m_svo;
-		mat3ds  &smo = pt.m_smo;
-		mat3ds  &sco = pt.m_sco;
+		mat3ds        &smo = pt.m_smo;
+		mat3ds        &sco = pt.m_sco;
 		const mat3d    Fio = pt.m_Fio;
-		double &phic = pt.m_phic;
+		double       &phic = pt.m_phic;
 		
 		phic = phico;																// initial guess
 		double dRdc = J/Jo*(1.0+phimo/phico*eta*pow(J/Jo*phic/phico,eta-1.0));		// initial tangent d(R)/d(phic)
