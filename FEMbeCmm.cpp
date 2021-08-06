@@ -11,6 +11,7 @@
 
 GRMaterialPoint::GRMaterialPoint(FEMaterialPoint *pt) : FEMaterialPoint(pt) {}
 
+// might be unneccessary
 FEMaterialPoint* GRMaterialPoint::Copy()
 {
 	GRMaterialPoint* pt = new GRMaterialPoint(*this);
@@ -426,9 +427,36 @@ void FEMbeCmm::StressTangent(FEMaterialPoint& mp, mat3ds& stress, tens4dmm& tang
 
 		css = cess + cfss + cass + cpnss;
 
+		css.zero();
 		css += 1.0/3.0*(2.0*sx.tr()*IoIss-2.0*Ixsx-ddot(IxIss,css))
 			 + svo/(1.0-delta)*(1.0+KsKi*(EPS*pow(rIrIo,-3)-1.0)-KfKi*inflam)*(IxIss-2.0*IoIss)
 			 - 3.0*svo/(1.0-delta)*KsKi*EPS*pow(rIrIo,-4)*(ro/rIo/lt*Ixntt-(ro-rIo)/rIo/lr*Ixnrr);
+
+
+		stringstream ss;
+//		ss<<sx.tr()<<std::endl;//ok
+//		ss<<svo<<std::endl;//ok
+//		ss<<rIrIo<<std::endl;//ok
+//		ss<<Cratio<<std::endl;//ok
+		ss<<ro<<std::endl;
+
+//		ss<<"S"<<std::endl;
+//		for (int i=0; i<3; i++)
+//			for (int j=0; j<3; j++)
+//				ss<<i<<" "<<j<<"\t"<<S(i,j)<<std::endl;
+//		ss<<std::endl;
+//
+//		ss<<"C"<<std::endl;
+//		for (int i=0; i < 3; i++)
+//			for (int j=0; j < 3; j++)
+//				for (int k=0; k < 3; k++)
+//					for (int l=0; l < 3; l++)
+//						ss<<i<<" "<<j<<" "<<k<<" "<<l<<"\t"<<css(i, j, k, l)<<std::endl;
+
+		ss<<std::endl;
+		fprintf(stdout, "%s", ss.str().c_str());
+		fflush(stdout);
+		throw std::exception();;
 	}
 
 	mat3ds s = 1.0/J*((F*(S*F.transpose()))).sym();

@@ -56,14 +56,15 @@ public:
 	// parameter in the constructor, even if the class does not need it (which most often
 	// will be the case). For material classes, the FEModel parameter is passed to the 
 	// base class in the initialization list.
+
+	// setting m_secant_tangent = true so FESolidMaterial uses SecantTangent
+	// (allows minor symmetry only tangents) instead of Tangent (minor and major symmetries)
 	FEMbeCmm(FEModel* pfem) : FEElasticMaterial(pfem) {
 		m_secant_tangent = true;
 	}
 
 public:
 	void StressTangent(FEMaterialPoint& mp, mat3ds& stress, tens4dmm& tangent);
-	mat3ds StressOld(FEMaterialPoint& pt);
-	tens4dmm SecantTangentOld(FEMaterialPoint& pt);
 
 	// This function calculates the spatial (i.e. Cauchy or true) stress.
 	// It takes one parameter, the FEMaterialPoint and returns a mat3ds object
