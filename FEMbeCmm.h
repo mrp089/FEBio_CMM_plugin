@@ -13,16 +13,16 @@
 // We need to include this file since our new material class will inherit from
 // FEElasticMaterial which is defined in this include files.
 #include "FEBioMech/FEElasticMaterial.h"
+#include <iostream>								// to use cin.get()
 
-class GRMaterialPoint : public FEMaterialPoint
+class FEBIOMECH_API GRMaterialPoint : public FEMaterialPointData
 {
 public:
-	GRMaterialPoint(FEMaterialPoint *pt);
+	GRMaterialPoint(FEMaterialPointData *pt) : FEMaterialPointData(pt) {};
 
-	FEMaterialPoint* Copy() override;
+	FEMaterialPointData* Copy() override;
 
 	void Init() override;
-
 	void Serialize(DumpStream& ar) override;
 
 public:
@@ -47,8 +47,10 @@ public:
 class FEMbeCmm : public FEElasticMaterial
 {
 public:
-	// returns a pointer to a new material point object
-	virtual FEMaterialPoint* CreateMaterialPointData() override { return new GRMaterialPoint(new FEElasticMaterialPoint); }
+	FEMbeCmm(FEModel* pfem);
+
+	//! create material point data for this material
+	// FEMaterialPointData* CreateMaterialPointData() override;
 
 public:
 	// The constructor is called when an instance of this class is created.
@@ -59,17 +61,20 @@ public:
 
 	// setting m_secant_tangent = true so FESolidMaterial uses SecantTangent
 	// (allows minor symmetry only tangents) instead of Tangent (minor and major symmetries)
-	FEMbeCmm(FEModel* pfem) : FEElasticMaterial(pfem) {
-		m_secant_tangent = true;
-	}
+	// 	 { return m_secant_tangent; }
+    bool m_secant_tangent;   //!< flag for using secant tangent
+
+    DECLARE_FECORE_CLASS();
 
 public:
+	// function to perform material evaluation. calculates stress and tangent to avoid code duplication
 	void StressTangent(FEMaterialPoint& mp, mat3ds& stress, tens4dmm& tangent);
 
 	// This function calculates the spatial (i.e. Cauchy or true) stress.
 	// It takes one parameter, the FEMaterialPoint and returns a mat3ds object
 	// which is a symmetric second-order tensor.
-	virtual mat3ds Stress(FEMaterialPoint& pt){
+	virtual mat3ds Stress(FEMaterialPoint& pt) override {
+	std::cout<<"wtf stress"<<std::endl;
 		mat3ds stress;
 		tens4dmm tangent;
 		StressTangent(pt, stress, tangent);
@@ -79,10 +84,14 @@ public:
 	// This function calculates the spatial elasticity tangent tensor. 
 	// It takes one parameter, the FEMaterialPoint and retursn a tens4ds object
 	// which is a fourth-order tensor with major and minor symmetries.
-	virtual tens4ds Tangent(FEMaterialPoint& pt) {};
+	virtual tens4ds Tangent(FEMaterialPoint& pt) override {
+		tens4ds tangent;
+		return tangent;
+	};
 
 	// minor symmetries only
 	virtual tens4dmm SecantTangent(FEMaterialPoint& pt) {
+	std::cout<<"wtf tangent"<<std::endl;
 		mat3ds stress;
 		tens4dmm tangent;
 		StressTangent(pt, stress, tangent);

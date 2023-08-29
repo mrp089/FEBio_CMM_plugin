@@ -1,19 +1,29 @@
 //#include "stdafx.h"
 #include "FEMbeCmm.h"
+#include "FEBioMech/FEElasticMaterial.h"
 #include "FECore/FEAnalysis.h"					// to get end time
 #include "FECore/FEModel.h"						// to get current time
+#include "FECore/log.h"							// to print to log file and/or screen
 #include <iostream>								// to use cin.get()
 #include <sstream>
 #include <signal.h>
 #define _USE_MATH_DEFINES						// to introduce pi constant (1/2)
 #include <math.h>								// to introduce pi constant (2/2)
-#include "FECore/log.h"							// to print to log file and/or screen
 
-GRMaterialPoint::GRMaterialPoint(FEMaterialPoint *pt) : FEMaterialPoint(pt) {}
+// define the material parameters
+BEGIN_FECORE_CLASS(FEMbeCmm, FEElasticMaterial)
+    ADD_PARAMETER(m_secant_tangent, "secant_tangent");
+END_FECORE_CLASS();
 
-// might be unneccessary
-FEMaterialPoint* GRMaterialPoint::Copy()
+FEMbeCmm::FEMbeCmm(FEModel* pfem) : FEElasticMaterial(pfem)
 {
+	std::cout<<"wtf constructor"<<std::endl;
+    m_secant_tangent = true;
+}
+
+FEMaterialPointData* GRMaterialPoint::Copy()
+{
+	std::cout<<"wtf material"<<std::endl;
 	GRMaterialPoint* pt = new GRMaterialPoint(*this);
     if (m_pNext) pt->m_pNext = m_pNext->Copy();
     return pt;
@@ -21,7 +31,8 @@ FEMaterialPoint* GRMaterialPoint::Copy()
 
 void GRMaterialPoint::Init()
 {
-	FEMaterialPoint::Init();
+	std::cout<<"wtf 	FEMaterialPointData::Init();"<<std::endl;
+	FEMaterialPointData::Init();
 
 	m_Jo = 1;
 	m_svo = 0;
@@ -37,12 +48,16 @@ void GRMaterialPoint::Init()
 
 void GRMaterialPoint::Serialize(DumpStream& ar)
 {
-	FEMaterialPoint::Serialize(ar);
+		std::cout<<"wtf Serialize"<<std::endl;
+
+	FEMaterialPointData::Serialize(ar);
 	ar & m_Jo & m_svo & m_smo & m_sco & m_Fio & m_Jh & m_Fih & m_phic & m_Iemax;
 }
 
 void FEMbeCmm::StressTangent(FEMaterialPoint& mp, mat3ds& stress, tens4dmm& tangent)
-{
+{		
+	std::cout<<"wtf StressTangent"<<std::endl;
+
 	// The FEMaterialPoint classes are stored in a linked list. The specific material
 	// point data needed by this function can be accessed using the ExtractData member.
 	// In this case, we want to FEElasticMaterialPoint data since it stores the deformation
@@ -66,7 +81,7 @@ void FEMbeCmm::StressTangent(FEMaterialPoint& mp, mat3ds& stress, tens4dmm& tang
 	const double sgr = min(t,partialtime);		// min(t,partialtime) | min(t,9.0)
 
 	// retrieve material position
-	const vec3d  X = pt.m_r0;
+	const vec3d  X = mp.m_r0;
 
 	const double imper = 0.00;					// imper > 0 for TORTUOSITY (see Matlab script <NodesElementsAsy.m>) | 0.00 | 20.0
 	const double rIo = 0.6468;					// 0.6468 | 0.5678
