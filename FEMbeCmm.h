@@ -74,7 +74,6 @@ public:
 	// It takes one parameter, the FEMaterialPoint and returns a mat3ds object
 	// which is a symmetric second-order tensor.
 	virtual mat3ds Stress(FEMaterialPoint& pt) override {
-	std::cout<<"wtf stress"<<std::endl;
 		mat3ds stress;
 		tens4dmm tangent;
 		StressTangent(pt, stress, tangent);
@@ -91,7 +90,6 @@ public:
 
 	// minor symmetries only
 	virtual tens4dmm SecantTangent(FEMaterialPoint& pt) {
-	std::cout<<"wtf tangent"<<std::endl;
 		mat3ds stress;
 		tens4dmm tangent;
 		StressTangent(pt, stress, tangent);

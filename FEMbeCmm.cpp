@@ -17,13 +17,11 @@ END_FECORE_CLASS();
 
 FEMbeCmm::FEMbeCmm(FEModel* pfem) : FEElasticMaterial(pfem)
 {
-	std::cout<<"wtf constructor"<<std::endl;
     m_secant_tangent = true;
 }
 
 FEMaterialPointData* GRMaterialPoint::Copy()
 {
-	std::cout<<"wtf material"<<std::endl;
 	GRMaterialPoint* pt = new GRMaterialPoint(*this);
     if (m_pNext) pt->m_pNext = m_pNext->Copy();
     return pt;
@@ -31,7 +29,6 @@ FEMaterialPointData* GRMaterialPoint::Copy()
 
 void GRMaterialPoint::Init()
 {
-	std::cout<<"wtf 	FEMaterialPointData::Init();"<<std::endl;
 	FEMaterialPointData::Init();
 
 	m_Jo = 1;
@@ -48,16 +45,12 @@ void GRMaterialPoint::Init()
 
 void GRMaterialPoint::Serialize(DumpStream& ar)
 {
-		std::cout<<"wtf Serialize"<<std::endl;
-
 	FEMaterialPointData::Serialize(ar);
 	ar & m_Jo & m_svo & m_smo & m_sco & m_Fio & m_Jh & m_Fih & m_phic & m_Iemax;
 }
 
 void FEMbeCmm::StressTangent(FEMaterialPoint& mp, mat3ds& stress, tens4dmm& tangent)
 {		
-	std::cout<<"wtf StressTangent"<<std::endl;
-
 	// The FEMaterialPoint classes are stored in a linked list. The specific material
 	// point data needed by this function can be accessed using the ExtractData member.
 	// In this case, we want to FEElasticMaterialPoint data since it stores the deformation
