@@ -49,6 +49,11 @@ void GRMaterialPoint::Serialize(DumpStream& ar)
 	ar & m_Jo & m_svo & m_smo & m_sco & m_Fio & m_Jh & m_Fih & m_phic & m_Iemax;
 }
 
+FEMaterialPointData* FEMbeCmm::CreateMaterialPointData() 
+{ 
+	return new GRMaterialPoint(new FEElasticMaterialPoint); 
+}
+
 void FEMbeCmm::StressTangent(FEMaterialPoint& mp, mat3ds& stress, tens4dmm& tangent)
 {		
 	// The FEMaterialPoint classes are stored in a linked list. The specific material

@@ -50,7 +50,7 @@ public:
 	FEMbeCmm(FEModel* pfem);
 
 	//! create material point data for this material
-	// FEMaterialPointData* CreateMaterialPointData() override;
+	FEMaterialPointData* CreateMaterialPointData() override;
 
 public:
 	// The constructor is called when an instance of this class is created.
